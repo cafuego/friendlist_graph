@@ -36,8 +36,21 @@ function friendlist_graph_requirements($phase) {
  * use hook_schema to do this :-(
  */
 function friendlist_graph_install() {
-  $query = "CREATE TABLE ":
-  drupal_install_schema('friendlist_graph');
+  $ret = array();
+
+  $query = "CREATE TABLE {friendlist_graph} (
+    latch   SMALLINT  UNSIGNED NULL,
+    origid  BIGINT    UNSIGNED NULL,
+    destid  BIGINT    UNSIGNED NULL,
+    weight  DOUBLE    NULL,
+    seq     BIGINT    UNSIGNED NULL,
+    linkid  BIGINT    UNSIGNED NULL,
+    KEY (latch, origid, destid) USING HASH,
+    KEY (latch, destid, origid) USING HASH
+  ) ENGINE=OQGRAPH;";
+
+  $ret[] = update_sql($query);
+  return $ret;
 }
 
 /**
@@ -48,15 +61,3 @@ function friendlist_graph_uninstall() {
   db_drop_table($ret, 'friendlist_graph');
   return $ret;
 }
-
-/**
- * Implementation of hook_schema()
- */
-function friendlist_graph_schema() {
-  $schema = array();
-
-  $schema['friendlist_graph'] = array(
-    'description' => ''
-  );
-
-  return $schema;
