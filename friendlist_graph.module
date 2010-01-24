@@ -1,0 +1,235 @@
+<?php
+
+/**
+ * Implementation of hook_perm()
+ */
+function friendlist_graph_perm() {
+  return array('administer friendlist graph');
+}
+  
+/**
+ * Implementation of hook_menu()
+ */
+function friendlist_graph_menu() {
+  $items['admin/settings/friendlist_graph'] = array(
+    'title' => 'Friendlist Graph',
+    'description' => 'Play with the friendlist graph.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('friendlist_graph_form'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer friendlist graph'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/settings/friendlist_graph/rebuild'] = array(
+    'title' => 'Rebuild Friendlist Graph Data',
+    'description' => 'Re-import friend data to the graph table.',
+    'page callback' => array('friendlist_graph_rebuild'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer friendlist graph'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+function friendlist_graph_rebuild() {
+  // Empty the graph table (truncate not supported!)
+  //
+  db_query("DELETE FROM {friendlist_graph}");
+  drupal_set_message(t('Deleted old friendlist graph data'));
+
+  // Insert all bi-directional relationships.
+  //
+  db_query("INSERT INTO {friendlist_graph} (origid,destid) SELECT requester_id, requestee_id FROM {friendlist_statuses} WHERE status = 'TW_BOTH'");
+
+  // Count relationships and tell the user what we did.
+  //
+  $num = db_result(db_query("SELECT COUNT(*) FROM {friendlist_graph}"));
+  drupal_set_message(t('Refreshed data for @num relationships', array('@num' => $num)));
+
+  return t('Rebuild complete.');
+}
+
+/**
+ * Implementation of hook_block()
+ */
+function friendlist_graph_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks[0]['info'] = t('Relationship to the content\s author');
+      return $blocks;
+
+    case 'view':
+      if (user_access('have relationships with friendlist')) {
+        $block = array();
+
+        if ($delta == 0) {
+          $block['subject'] = t('Relationship');
+          $block['content'] = friendlist_graph_show_relationship();
+        }
+      }
+      return $block;
+}
+
+/**
+ * Calculate the relationship between the current user and the author of the current node.
+ */
+function friendlist_graph_show_relationship();
+  global $user;
+
+  switch (arg(0)) {
+    case 'node':
+      $node = node_load(arg(1));
+      $target = $node->uid;
+      break;
+
+    case 'user':
+      $target = arg(1);
+      break;
+
+    default:
+      return;
+  } // end case
+
+  $query = "SELECT u.uid, u.name from {friendlist_graph} flg JOIN {users} u ON (flg.linkid = u.uid) WHERE latch=1 AND origid=%d AND destid=%d ORDER BY flg.seq ASC";
+  $result = db_query($query, $user->uid, $target);
+
+  while ($row = db_fetch_array($result)) {
+    $data[] = (user_access('access user profiles')) ? l($row['name'] , 'user/' . $row['id']) : $row['name']);
+  }
+
+  if (!$data)
+    return;
+
+  // Allow users to theme the output. Eyebrowwiggle.
+  //
+  return theme('friendlist_graph_list', $data);
+}
+
+/**
+ * Implementation of hook_theme()
+ */
+function friendlist_graph_theme() {
+  return array(
+    'friendlist_graph_list' => array(
+      'arguments' => array('list' => array()),
+    )
+  );
+}
+
+/**
+ * Theme function to format a list of relationships.
+ */
+function theme_friendlist_graph_list($list) {
+  return implode("&nbsp;&rarr; ", $list);
+}
+
+/**
+ * These functions were used to demo the module. Not useful currently except as example.
+ */
+function friendlist_graph_form($form_state) {
+  $form = array();
+  $form['#redirect'] = FALSE; 
+
+  if ($form_state['submitted'] == TRUE) {
+    $form['graph'] = array(
+      '#type' => 'markup',
+      '#value' => friendlist_graph_form_process($form_state),
+    );
+  } 
+
+  $form['requester'] = array(
+    '#type' => 'textfield',
+    '#title' => 'From User ID',
+    '#description' => 'Enter a valid user uid for the user that is the start of the chain.',
+    '#size' => 5,
+    '#default_value' => $form_state['values']['requester'],
+  );
+  $form['requestee'] = array(
+    '#type' => 'textfield',
+    '#title' => 'To User ID',
+    '#description' => 'Enter a valid user uid for the user that is the end of the chain.',
+    '#size' => 5,
+    '#default_value' => $form_state['values']['requestee'],
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Find Relationship!',
+  );
+
+  // Return the form.
+  return $form;
+}
+
+function friendlist_graph_form_validate($form, &$form_state) {
+  $requester = user_load(intval($form_state['values']['requester']));
+  if (!$requester->uid)
+    form_set_error('requester', 'I said VALID start user uid!');
+
+  $requestee = user_load(intval($form_state['values']['requestee']));
+  if (!$requestee->uid)
+    form_set_error('requestee', 'I said VALID end user uid!');
+}
+
+function friendlist_graph_form_submit($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+}
+
+function friendlist_graph_form_process($form_state) {
+
+  $requester = user_load($form_state['values']['requester']);
+  $requestee = user_load($form_state['values']['requestee']);
+
+  $query = "SELECT u.uid, u.name, flg.seq from friendlist_graph flg JOIN users u ON (flg.linkid = u.uid) WHERE latch=1 AND origid=%d AND destid=%d ORDER BY flg.seq ASC";
+  $result = db_query($query, $form_state['values']['requester'], $form_state['values']['requestee']);
+
+  while ($row = db_fetch_array($result)) {
+    $data[] = l($row['name'] , 'user/' . $row['uid']);
+  }
+
+  $output = t('<h2>From !start to !end</h2>', array('!start' => $requester->name, '!end' => $requestee->name));
+  if ($data)
+    $output .= implode("&nbsp;&rarr; ", $data);
+  else
+    drupal_set_message('There is no path!', 'error');
+
+  unset($result);
+  unset($data);
+
+  // Grab uid 1. Why not.
+  $admin = user_load(1);
+
+  $output .= t('<h2>From !start to !end via the admin user!</h2>', array('!start' => $requester->name, '!end' => $requestee->name));
+
+  $first = db_query($query, $form_state['values']['requester'], 1);
+  while ($row = db_fetch_array($first)) {
+    $up[] = l($row['name'] , 'user/' . $row['uid']);
+  }
+
+  // Remove the last entry.
+  if ($up) {
+    array_pop($up);
+    $output .= implode("&nbsp;&rarr; ", $up);
+    $output .= " &rarr; <b>" . $admin->name . "</b> &rarr; ";
+  }
+  else {
+    drupal_set_message('There is no path from ' . $requester->name . ' to ' . $admin->name . '!', 'error');
+  }
+
+  $last = db_query($query, 1, $form_state['values']['requestee']);
+  while ($row = db_fetch_array($last)) {
+    $down[] = l($row['name'] , 'user/' . $row['uid']);
+  }
+
+  // Remove the first entry.
+  if ($down)
+    array_shift($down);
+    $output .= implode("&nbsp;&rarr; ", $down);
+  }
+  else {
+    drupal_set_message('There is no path from ' . $admin->name . ' to ' . $requestee->name . '!', 'error');
+  }
+
+  return $output;
+}
