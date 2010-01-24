@@ -24,7 +24,7 @@ function friendlist_graph_menu() {
   $items['admin/settings/friendlist_graph/random'] = array(
     'title' => 'Create random relationships',
     'description' => 'Assign random friend relationships between current users.',
-    'page callback' => array('friendlist_graph_random'),
+    'page callback' => 'friendlist_graph_random',
     'access callback' => 'user_access',
     'access arguments' => array('administer friendlist graph'),
     'type' => MENU_LOCAL_TASK,
@@ -33,7 +33,7 @@ function friendlist_graph_menu() {
   $items['admin/settings/friendlist_graph/rebuild'] = array(
     'title' => 'Rebuild Friendlist Graph Data',
     'description' => 'Re-import friend data to the graph table.',
-    'page callback' => array('friendlist_graph_rebuild'),
+    'page callback' => 'friendlist_graph_rebuild',
     'access callback' => 'user_access',
     'access arguments' => array('administer friendlist graph'),
     'type' => MENU_LOCAL_TASK,
