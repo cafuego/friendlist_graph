@@ -21,6 +21,15 @@ function friendlist_graph_menu() {
     'type' => MENU_LOCAL_TASK,
   );
 
+  $items['admin/settings/friendlist_graph/random'] = array(
+    'title' => 'Create random relationships',
+    'description' => 'Assign random friend relationships between current users.',
+    'page callback' => array('friendlist_graph_random'),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer friendlist graph'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
   $items['admin/settings/friendlist_graph/rebuild'] = array(
     'title' => 'Rebuild Friendlist Graph Data',
     'description' => 'Re-import friend data to the graph table.',
@@ -31,6 +40,37 @@ function friendlist_graph_menu() {
   );
 
   return $items;
+}
+
+function friendlist_graph_random() {
+  // Load all UIDs.
+  $max = db_result(db_query("SELECT MAX(uid) AS highest FROM {users}"));
+  $result = db_query("SELECT uid FROM {users} WHERE uid > 0");
+  while ($u = db_fetch_array($result)) {
+    $uid[] = $u['uid'];
+  }
+
+  db_query("DELETE FROM {friendlist_statuses} WHERE requester_id=0 OR requestee_id=0");
+
+  srand( time() );
+
+  // Make a new friend for each user :-)
+  foreach($uid as $u) {
+    do {
+      $friend = rand(1, $max);
+    } while($friend == $u);
+
+    db_query("INSERT INTO {friendlist_statuses} (requester_id, requestee_id, status) VALUES (%d, %d, '%s')", $u, $friend, 'TW_BOTH');
+    db_query("INSERT INTO {friendlist_statuses} (requestee_id, requester_id, status) VALUES (%d, %d, '%s')", $u, $friend, 'TW_BOTH');
+  }
+
+  // Rebuild the data in the OQGRAPH table.
+  db_query("DELETE FROM {friendlist_graph}");
+  db_query("INSERT INTO {friendlist_graph} (origid,destid) SELECT requester_id,requestee_id FROM {friendlist_statuses} WHERE status='TW_BOTH'");
+
+  drupal_set_message(t('Created relationships for @num users!', array('@num' => count($uid))));
+
+  return 'Admin done';
 }
 
 function friendlist_graph_rebuild() {
