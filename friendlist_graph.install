@@ -47,7 +47,7 @@ function friendlist_graph_install() {
     linkid  BIGINT    UNSIGNED NULL,
     KEY (latch, origid, destid) USING HASH,
     KEY (latch, destid, origid) USING HASH
-  ) ENGINE=OQGRAPH;";
+  ) ENGINE=OQGRAPH";
 
   $ret[] = update_sql($query);
   return $ret;
