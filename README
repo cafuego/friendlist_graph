@@ -13,8 +13,22 @@ This module will only work if you use MySQL or MariaDB with OQGRAPH support.
 Visit http://ourdelta.org/ to find out more about OQGRAPH and to download
 MySQL or MariaDB packages for your systems.
 
+== License ==
+
+This module is distributed under the terms of the GPLv2+ license. See
+http://www.gnu.org/licenses/gpl-2.0.html for full details.
+
+== Authors ==
+
+Arjen Lentz	<arjen@openquery.com>
+Peter Lieverdink <me@cafuego.net>
+
+== Copyright ==
+
+Copyright 2010 Arjen Lentz and Peter Lieverdink.
+
 == Links ==
 
-  OQGRAPH		http://openquery.com/products/graph-engine
+  OQGRAPH		http://openquery.com/graph
   Friendlist	http://drupal.org/project/friendlist
   OurDelta		http://ourdelta.org/
