@@ -23,7 +23,6 @@ function friendlist_graph_requirements($phase) {
       $status['severity'] = ($phase == 'install') ? REQUIREMENT_OK : REQUIREMENT_INFO;
     }
   }
-
   return $status;
 }
 
@@ -36,7 +35,7 @@ function friendlist_graph_requirements($phase) {
  * use hook_schema to do this :-(
  */
 function friendlist_graph_install() {
-  $ret = array();
+  // drupal_install_schema('friendlist_graph');
 
   $query = "CREATE TABLE {friendlist_graph} (
     latch   SMALLINT  UNSIGNED NULL,
@@ -49,8 +48,7 @@ function friendlist_graph_install() {
     KEY (latch, destid, origid) USING HASH
   ) ENGINE=OQGRAPH";
 
-  $ret[] = update_sql($query);
-  return $ret;
+  db_query($query);
 }
 
 /**
@@ -61,3 +59,53 @@ function friendlist_graph_uninstall() {
   db_drop_table($ret, 'friendlist_graph');
   return $ret;
 }
+
+/**
+ * There is some fail. Can't specify an engine in the schema.
+ *
+function friendlist_graph_schema() {
+  $schema = array();
+
+  $schema['friendlist_graph'] = array(
+    'description' => 'An in-memory table used by the graph module.',
+    'fields' => array(
+      'latch' => array(
+        'description' => 'Internal use only.',
+        'type' => 'int',
+        'size' => 'small',
+      ),
+      'origid' => array(
+        'description' => 'References a {friendlist_statuses}.requester_id',
+        'type' => 'int',
+        'size' => 'big',
+      ),
+      'destid' => array(
+        'description' => 'References a {friendlist_statuses}.requestee_id',
+        'type' => 'int',
+        'size' => 'big',
+      ),
+      'weight' => array(
+        'description' => 'Optional link weighting. Defaults to 1.',
+        'type' => 'float',
+        'size' => 'big',
+      ),
+      'seq' => array(
+        'description' => 'Internal use only.',
+        'type' => 'int',
+        'size' => 'big',
+      ),
+      'linkid' => array(
+        'description' => 'Internal use only.',
+        'type' => 'int',
+        'size' => 'big',
+      ),
+    ),
+    'indexes' => array(
+      'latch_origid_destid' => array('latch', 'origid', 'destid'),
+      'latch_destid_orig' => array('latch', 'destid', 'origid')
+    ),
+  );
+
+  return $schema;
+}
+*/

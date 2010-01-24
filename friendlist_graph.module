@@ -57,7 +57,7 @@ function friendlist_graph_rebuild() {
 function friendlist_graph_block($op = 'list', $delta = 0, $edit = array()) {
   switch ($op) {
     case 'list':
-      $blocks[0]['info'] = t('Relationship to the content\s author');
+      $blocks[0]['info'] = t('Relationship to the content\'s author');
       return $blocks;
 
     case 'view':
