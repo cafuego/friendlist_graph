@@ -70,12 +70,13 @@ function friendlist_graph_block($op = 'list', $delta = 0, $edit = array()) {
         }
       }
       return $block;
+   } // end switch
 }
 
 /**
  * Calculate the relationship between the current user and the author of the current node.
  */
-function friendlist_graph_show_relationship();
+function friendlist_graph_show_relationship() {
   global $user;
 
   switch (arg(0)) {
@@ -90,13 +91,13 @@ function friendlist_graph_show_relationship();
 
     default:
       return;
-  } // end case
+  } // end switch
 
   $query = "SELECT u.uid, u.name from {friendlist_graph} flg JOIN {users} u ON (flg.linkid = u.uid) WHERE latch=1 AND origid=%d AND destid=%d ORDER BY flg.seq ASC";
   $result = db_query($query, $user->uid, $target);
 
   while ($row = db_fetch_array($result)) {
-    $data[] = (user_access('access user profiles')) ? l($row['name'] , 'user/' . $row['id']) : $row['name']);
+    $data[] = (user_access('access user profiles')) ? l($row['name'] , 'user/' . $row['id']) : $row['name'];
   }
 
   if (!$data)
@@ -223,7 +224,7 @@ function friendlist_graph_form_process($form_state) {
   }
 
   // Remove the first entry.
-  if ($down)
+  if ($down) {
     array_shift($down);
     $output .= implode("&nbsp;&rarr; ", $down);
   }
