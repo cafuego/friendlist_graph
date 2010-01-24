@@ -1,0 +1,62 @@
+<?php
+
+/**
+ * Implementation of hook_requirements()
+ *
+ * Check whether the sql server has the OQGRAPH engine.
+ */
+function friendlist_graph_requirements($phase) {
+  // Create a status array that can be returned.
+  //
+  $status = array(
+    'title' => t('OQGRAPH Engine'),
+    'description' => t('The OQGRAPH MySQL storage engine is not available on your SQL server.'),
+    'severity' => REQUIREMENT_ERROR,
+  );
+
+  // Query the server for all available engines and check if OQGRAPH is in the list.
+  //
+  $result = db_query("SHOW STORAGE ENGINES");
+  while ($engine = db_fetch_array($result)) {
+    if ($engine['Engine'] == 'OQGRAPH') {
+      $status['description'] = t('The OQGRAPH MySQL storage engine is available on your server.');
+      $status['severity'] = ($phase == 'install') ? REQUIREMENT_OK : REQUIREMENT_INFO;
+    }
+  }
+
+  return $status;
+}
+
+/**
+ * Implementation of hook_install()
+ *
+ * Create the friendlist graph table and transpose data.
+ *
+ * Since the Schema API doesn't allow specific storage engines, we can't just
+ * use hook_schema to do this :-(
+ */
+function friendlist_graph_install() {
+  $query = "CREATE TABLE ":
+  drupal_install_schema('friendlist_graph');
+}
+
+/**
+ * Implementation of hook_uninstall()
+ */
+function friendlist_graph_uninstall() {
+  $ret = array();
+  db_drop_table($ret, 'friendlist_graph');
+  return $ret;
+}
+
+/**
+ * Implementation of hook_schema()
+ */
+function friendlist_graph_schema() {
+  $schema = array();
+
+  $schema['friendlist_graph'] = array(
+    'description' => ''
+  );
+
+  return $schema;
