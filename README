@@ -1,0 +1,10 @@
+friendlist_graph is an add-on to the friendlist Drupal module.
+
+This module transposes Friendlist data to a new type of MySQL table (OQGRAPH)
+and then allows it to be queried in new and interesting ways. For instance,
+it allows you to play Six Degrees of Kevin Bacon with your Drupal users or
+find out how two arbitrary users are connected.
+
+This module will only work if you use MySQL or MariaDB with OQGRAPH support.
+Visit http://ourdelta.org/ to find out more about OQGRAPH and to download
+MySQL or MAriaDB packages for your systems.
