@@ -4,4 +4,4 @@ core = 6.x
 package = Friendlist
 version = "6.x-0.x-dev
 
-dependencies[] = friendlist_ui
+dependencies[] = friendlist_api
