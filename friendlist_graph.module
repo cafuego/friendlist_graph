@@ -21,6 +21,15 @@ function friendlist_graph_menu() {
     'type' => MENU_LOCAL_TASK,
   );
 
+  $items['admin/settings/friendlist_graph/clear'] = array(
+    'title' => 'Clear all relationships',
+    'description' => 'Remove all relationships between current users.',
+    'page callback' => 'friendlist_graph_clear',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer friendlist graph'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
   $items['admin/settings/friendlist_graph/random'] = array(
     'title' => 'Create random relationships',
     'description' => 'Assign random friend relationships between current users.',
@@ -42,6 +51,20 @@ function friendlist_graph_menu() {
   return $items;
 }
 
+function friendlist_graph_clear() {
+  // Count relationships, so we can tell the user now many we deleted.
+  //
+  $num = db_result(db_query("SELECT COUNT(*) FROM {friendlist_statuses}"));
+
+  // Simply delete all relationships.
+  //
+  db_query("DELETE FROM {friendlist_statuses}");
+
+  drupal_set_message(t('Deleted @num relationships', array('@num' => $num)));
+
+  return t('Done.');
+}
+
 function friendlist_graph_random() {
   // Load all UIDs.
   $max = db_result(db_query("SELECT MAX(uid) AS highest FROM {users}"));
@@ -50,27 +73,42 @@ function friendlist_graph_random() {
     $uid[] = $u['uid'];
   }
 
+  // Delete relationships with the Anonymous user.
+  //
   db_query("DELETE FROM {friendlist_statuses} WHERE requester_id=0 OR requestee_id=0");
 
-  srand( time() );
+  // Seed the randomizer.
+  //
+  srand( uniqid( time() ) );
 
-  // Make a new friend for each user :-)
+  // We're going to potentilly run lots of queries. This can be much, much faster if we
+  // optimise things a bit and run the whole lot in a single transaction.
+  //
+  db_query("BEGIN");
+
+  // Make a single random new friend for each user. Do not use self :-)
+  //
   foreach($uid as $u) {
     do {
       $friend = rand(1, $max);
     } while($friend == $u);
 
-    db_query("INSERT INTO {friendlist_statuses} (requester_id, requestee_id, status) VALUES (%d, %d, '%s')", $u, $friend, 'TW_BOTH');
-    db_query("INSERT INTO {friendlist_statuses} (requestee_id, requester_id, status) VALUES (%d, %d, '%s')", $u, $friend, 'TW_BOTH');
+    // Insert both directions in a single query. OQGRAPH is MySQL-specific anyway and this halves the queries.
+    //
+    db_query("INSERT INTO {friendlist_statuses} (requester_id, requestee_id, status) VALUES (%d, %d, '%s'), (%d, %d, '%s')", $u, $friend, 'TW_BOTH', $friend, $u, 'TW_BOTH');
   }
 
-  // Rebuild the data in the OQGRAPH table.
-  db_query("DELETE FROM {friendlist_graph}");
-  db_query("INSERT INTO {friendlist_graph} (origid,destid) SELECT requester_id,requestee_id FROM {friendlist_statuses} WHERE status='TW_BOTH'");
+  // ... and commit all that lot in one fell swoop.
+  //
+  db_query("COMMIT");
 
-  drupal_set_message(t('Created relationships for @num users!', array('@num' => count($uid))));
+  drupal_set_message(t('Created relationships for @num users', array('@num' => count($uid))));
 
-  return 'Admin done';
+  // Update the data in the OQGRAPH table.
+  //
+  friendlist_graph_rebuild();
+
+  return t('Done.');
 }
 
 function friendlist_graph_rebuild() {
@@ -86,9 +124,9 @@ function friendlist_graph_rebuild() {
   // Count relationships and tell the user what we did.
   //
   $num = db_result(db_query("SELECT COUNT(*) FROM {friendlist_graph}"));
-  drupal_set_message(t('Refreshed data for @num relationships', array('@num' => $num)));
+  drupal_set_message(t('Refreshed OQGRAPH data for @num relationships', array('@num' => $num)));
 
-  return t('Rebuild complete.');
+  return t('Done.');
 }
 
 /**
@@ -119,6 +157,11 @@ function friendlist_graph_block($op = 'list', $delta = 0, $edit = array()) {
 function friendlist_graph_show_relationship() {
   global $user;
 
+  // If there is no nid or uid, don't try to use it :-)
+  //
+  if (!arg(1) )
+    return;
+
   switch (arg(0)) {
     case 'node':
       $node = node_load(arg(1));
@@ -136,10 +179,14 @@ function friendlist_graph_show_relationship() {
   $query = "SELECT u.uid, u.name from {friendlist_graph} flg JOIN {users} u ON (flg.linkid = u.uid) WHERE latch=1 AND origid=%d AND destid=%d ORDER BY flg.seq ASC";
   $result = db_query($query, $user->uid, $target);
 
+  $data = array();
+
   while ($row = db_fetch_array($result)) {
     $data[] = (user_access('access user profiles')) ? l($row['name'] , 'user/' . $row['id']) : $row['name'];
   }
 
+  // Don't return content if there is no relationship.
+  //
   if (!$data)
     return;
 
