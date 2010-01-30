@@ -182,12 +182,20 @@ function friendlist_graph_show_relationship() {
   $data = array();
 
   while ($row = db_fetch_array($result)) {
-    $data[] = (user_access('access user profiles')) ? l($row['name'] , 'user/' . $row['id']) : $row['name'];
+    // If you have enough relationships and a properly tuned server, the number of user_load()
+    // calls below might be low enough to be able to use the theme layer.
+    //
+    // $relationship = user_load($row['uid']);
+    // $data[] = theme('username', $relationship);
+
+    // For now, though, just manually create the link.
+    //
+    $data[] = (user_access('access user profiles')) ? l($row['name'] , 'user/' . $row['uid']) : $row['name'];
   }
 
-  // Don't return content if there is no relationship.
+  // Don't return content if there is no relationship or if the only entry is the current user.
   //
-  if (!$data)
+  if (count($data) <= 1)
     return;
 
   // Allow users to theme the output. Eyebrowwiggle.
